@@ -60,7 +60,7 @@ def cli_inventory_versions(inventory):
     asyncio.run(inventory_versions.main(inventory=inventory))
 
 
-@cli.command(name="find-macaddr")
+@cli.command(name="find-host")
 @click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
 @click.option("-m", "--macaddr", help="mac-address", required=True)
 @click.pass_context

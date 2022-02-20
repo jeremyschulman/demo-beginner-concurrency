@@ -3,7 +3,6 @@
 # -----------------------------------------------------------------------------
 
 import asyncio
-import os
 from collections import Counter
 
 # -----------------------------------------------------------------------------
@@ -11,24 +10,38 @@ from collections import Counter
 # -----------------------------------------------------------------------------
 
 from aioeapi import Device
-from httpx import BasicAuth
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
 
+# -----------------------------------------------------------------------------
+# Private Imports
+# -----------------------------------------------------------------------------
 
-auth = BasicAuth(
-    username=os.environ["NETWORK_USERNAME"], password=os.environ["NETWORK_PASSWORD"]
-)
+from .auth import get_network_auth
+
+# -----------------------------------------------------------------------------
+# Exports
+# -----------------------------------------------------------------------------
+
+__all__ = ["main"]
 
 
-async def get_version(host: str):
+# -----------------------------------------------------------------------------
+#
+#                                 CODE BEGINS
+#
+# -----------------------------------------------------------------------------
+
+
+async def get_version(host: str, auth):
     async with Device(host=host, auth=auth) as dev:
         return await dev.cli("show version")
 
 
 async def inventory_versions(inventory):
-    tasks = [get_version(host=host) for host in inventory]
+    auth = get_network_auth()
+    tasks = [get_version(host=host, auth=auth) for host in inventory]
     results = Counter()
 
     with Progress() as progress:

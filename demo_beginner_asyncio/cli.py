@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -14,13 +15,8 @@ import click
 from rich.console import Console
 from . import __version__
 
-try:
-    from . import inventory_transceivers
-    from . import inventory_versions
-
-except Exception:
-    Console().print_exception(show_locals=True)
-    sys.exit(1)
+from . import inventory_transceivers
+from . import inventory_versions
 
 # -----------------------------------------------------------------------------
 #
@@ -58,10 +54,12 @@ def cli_inventory_versions():
 
 
 def main():
-    """ """
+    """
+    Main entrypoint for demonstration CLI script.
+    """
     try:
         cli()
 
     except Exception:
-        Console().print_exception(show_locals=True)
+        Console().print_exception(suppress=os.environ)
         sys.exit(1)

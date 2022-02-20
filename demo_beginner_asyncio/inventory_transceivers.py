@@ -19,7 +19,13 @@ from rich.table import Table
 # -----------------------------------------------------------------------------
 
 from .progressbar import Progress
-from .auth import g_auth
+from .auth import get_network_auth
+
+# -----------------------------------------------------------------------------
+# Exports
+# -----------------------------------------------------------------------------
+
+__all__ = ["main"]
 
 # -----------------------------------------------------------------------------
 #
@@ -28,10 +34,10 @@ from .auth import g_auth
 # -----------------------------------------------------------------------------
 
 
-async def get_transceivers(host: str) -> Tuple[str, Dict]:
+async def get_transceivers(host: str, auth) -> Tuple[str, Dict]:
     ifs_data = defaultdict(dict)
 
-    async with Device(host=host, auth=g_auth) as dev:
+    async with Device(host=host, auth=auth) as dev:
         ifs_xcvr, ifs_status = await dev.cli(
             commands=["show interfaces transceiver hardware", "show interfaces status"]
         )
@@ -59,7 +65,9 @@ async def inventory_transceivers(
     inventory: List[str], progressbar: Progress
 ) -> Tuple[Counter, List]:
 
-    tasks = [get_transceivers(host=host) for host in inventory]
+    auth = get_network_auth()
+
+    tasks = [get_transceivers(host=host, auth=auth) for host in inventory]
     ifs_down = list()
     ifx_types = Counter()
 

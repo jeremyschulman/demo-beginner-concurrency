@@ -8,6 +8,7 @@ authors = ["Jeremy Schulman <jeremy.schulman@mlb.com>"]
 python = "^3.8"
 aio-eapi = "^0.2.2"
 rich = "^11.2.0"
+macaddr = "^2.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 
 import asyncio
+from typing import List
 import os
 import sys
 from pathlib import Path
@@ -13,16 +14,29 @@ from pathlib import Path
 
 import click
 from rich.console import Console
-from . import __version__
+from macaddr import MacAddress
 
+# -----------------------------------------------------------------------------
+# Private Imports
+# -----------------------------------------------------------------------------
+
+from . import __version__
 from . import inventory_transceivers
 from . import inventory_versions
+from . import find_macaddr
 
 # -----------------------------------------------------------------------------
 #
 #                                 CODE BEGINS
 #
 # -----------------------------------------------------------------------------
+
+
+def _opt_inventory(ctx: click.Context, param, value):
+    try:
+        return Path(value).read_text().splitlines()
+    except Exception as exc:
+        ctx.fail(f"Unable to load inventory file '{value}': {str(exc)}")
 
 
 @click.group()
@@ -33,17 +47,33 @@ def cli():
 
 
 @cli.command(name="xcvrs")
-def cli_inventory_xcvrs():
+@click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
+def cli_inventory_xcvrs(inventory):
     """Run inventory transceivers demo"""
-    inventory = Path("inventory.text").read_text().splitlines()
     asyncio.run(inventory_transceivers.main(inventory=inventory))
 
 
 @cli.command(name="versions")
-def cli_inventory_versions():
+@click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
+def cli_inventory_versions(inventory):
     """Run inventory OS versions demo"""
-    inventory = Path("inventory.text").read_text().splitlines()
     asyncio.run(inventory_versions.main(inventory=inventory))
+
+
+@cli.command(name="find-macaddr")
+@click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
+@click.option("-m", "--macaddr", help="mac-address", required=True)
+@click.pass_context
+def cli_find_macaddr(ctx: click.Context, inventory: List[str], macaddr: str):
+    """Find switch-port where host with mac-addresss"""
+
+    try:
+        macaddr = MacAddress(macaddr)
+    except ValueError:
+        ctx.fail(f"Not a valid MAC address: {macaddr}")
+
+    print(f"Locating switch-port for host with MAC-Address {macaddr}")
+    asyncio.run(find_macaddr.main(inventory=inventory, macaddr=macaddr))
 
 
 # -----------------------------------------------------------------------------

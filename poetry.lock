@@ -244,6 +244,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "macaddr"
+version = "2.1"
+description = "Working with network MAC addresses"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "more-itertools"
 version = "8.12.0"
 description = "More routines for operating on iterables, beyond itertools"
@@ -492,7 +500,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "ad318aa8f9a56058f156200c6c3af02d5a99a0da21ae55406407161445c7fcef"
+content-hash = "05c1c2330e7d0a80cc15d00280b2d8dff6a68270c8ae629b61e033b6688954b4"
 
 [metadata.files]
 aio-eapi = [
@@ -596,6 +604,10 @@ invoke = [
     {file = "invoke-1.6.0-py2-none-any.whl", hash = "sha256:e6c9917a1e3e73e7ea91fdf82d5f151ccfe85bf30cc65cdb892444c02dbb5f74"},
     {file = "invoke-1.6.0-py3-none-any.whl", hash = "sha256:769e90caeb1bd07d484821732f931f1ad8916a38e3f3e618644687fc09cb6317"},
     {file = "invoke-1.6.0.tar.gz", hash = "sha256:374d1e2ecf78981da94bfaf95366216aaec27c2d6a7b7d5818d92da55aa258d3"},
+]
+macaddr = [
+    {file = "macaddr-2.1-py3-none-any.whl", hash = "sha256:98ef79bf0b451114f76b7e329bbdd134a6b2ca63d6e5aae72f990ea2a33d80c3"},
+    {file = "macaddr-2.1.tar.gz", hash = "sha256:07bb34404774719284b336c8d920ec29a49c948e2351ed357d6ed64e2533ae90"},
 ]
 more-itertools = [
     {file = "more-itertools-8.12.0.tar.gz", hash = "sha256:7dc6ad46f05f545f900dd59e8dfb4e84a4827b97b3cfecb175ea0c7d247f6064"},

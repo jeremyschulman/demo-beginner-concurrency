@@ -107,7 +107,7 @@ async def _search_network(
     """
 
     tasks = [
-        asyncio.create_task(_device_find_host_macaddr(device=device, macaddr=macaddr))
+        _device_find_host_macaddr(device=device, macaddr=macaddr)
         for device in inventory
     ]
 
@@ -120,9 +120,6 @@ async def _search_network(
             break
     else:
         return None
-
-    for task in tasks:
-        task.cancel()
 
     return found
 

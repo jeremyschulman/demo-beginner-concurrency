@@ -41,11 +41,17 @@ def main(inventory: List[str]):
     """
 
     workers = 4
+
+    # split the inventory into "workers" chunks so that multiprocessors can
+    # work on each chunk.
+
     chunk_c, rem = divmod(len(inventory), workers)
     pieces: List[List[str]] = list(chunk(inventory, len(inventory) // workers))
     if rem:
         rem_p = pieces.pop()
         pieces[-1].extend(rem_p)
+
+    # run the inventory using a multiprocessor Pool constructure
 
     start_ts = timer()
 
@@ -53,6 +59,9 @@ def main(inventory: List[str]):
         res = pool.map(proc_main, pieces)
 
     end_ts = timer()
+
+    # Now we need to recombine the results of each of the Process into a single
+    # structure for the reporting
 
     ifx_types = Counter()
     ifs_down = list()

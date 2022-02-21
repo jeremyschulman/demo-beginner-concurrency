@@ -32,7 +32,8 @@ from . import find_macaddr
 # -----------------------------------------------------------------------------
 
 
-def _opt_inventory(ctx: click.Context, param, value):
+def _cbk_opt_inventory(ctx: click.Context, param, value):
+    """callback for inventory option to read into list of strings"""
     try:
         return Path(value).read_text().splitlines()
     except Exception as exc:
@@ -47,21 +48,27 @@ def cli():
 
 
 @cli.command(name="xcvrs")
-@click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
+@click.option(
+    "-i", "--inventory", default="inventory.text", callback=_cbk_opt_inventory
+)
 def cli_inventory_xcvrs(inventory):
     """Run inventory transceivers demo"""
     asyncio.run(inventory_transceivers.main(inventory=inventory))
 
 
 @cli.command(name="versions")
-@click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
+@click.option(
+    "-i", "--inventory", default="inventory.text", callback=_cbk_opt_inventory
+)
 def cli_inventory_versions(inventory):
     """Run inventory OS versions demo"""
     asyncio.run(inventory_versions.main(inventory=inventory))
 
 
 @cli.command(name="find-host")
-@click.option("-i", "--inventory", default="inventory.text", callback=_opt_inventory)
+@click.option(
+    "-i", "--inventory", default="inventory.text", callback=_cbk_opt_inventory
+)
 @click.option("-m", "--macaddr", help="mac-address", required=True)
 @click.pass_context
 def cli_find_macaddr(ctx: click.Context, inventory: List[str], macaddr: str):

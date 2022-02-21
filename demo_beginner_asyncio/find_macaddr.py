@@ -1,3 +1,10 @@
+# =============================================================================
+# Purpose:
+# --------
+#    This file contains the main async funciton responsible for finding a
+#    connected end-host on the network, given the host's MAC address value.
+# =============================================================================
+
 # -----------------------------------------------------------------------------
 # System Imports
 # -----------------------------------------------------------------------------
@@ -33,31 +40,76 @@ __all__ = ["main"]
 
 
 @dataclass()
-class FoundHostMacaddr:
-    host: str
-    interface: str
+class FindHostSearchResults:
+    """Identifies where the end-host was found on the network"""
+
+    device: str  # the network device hostname
+    interface: str  # the interface on the network device
 
 
-async def device_find_host_macaddr(
-    host: str, macaddr: MacAddress
-) -> Optional[FoundHostMacaddr]:
+async def main(inventory: List[str], macaddr: MacAddress):
+    """
+    Given an inventory of devices and the MAC address to locate, try to find
+    the location of the end-host.  As a result of checking the network, the
+    User will see an output of either "found" identifying the network device
+    and port, or "Not found".
 
-    async with Device(host=host) as dev:
+    Parameters
+    ----------
+    inventory: List[str]
+        The list of network devices to check.
 
-        if not (interface := await dev.find_macaddr(macaddr)):
-            return None
+    macaddr: MacAddress
+        The end-host MAC addresss to locate
+    """
 
-        if not await dev.is_edge_port(interface=interface):
-            return None
+    with Progress() as progressbar:
+        found = await _search_network(
+            inventory, macaddr=macaddr, progressbar=progressbar
+        )
 
-    return FoundHostMacaddr(host=host, interface=interface)
+    if not found:
+        print("Not found.")
+        return
+
+    print(f"Found on device {found.device}, interface {found.interface}")
 
 
-async def locate_host_macaddr(
-    inventory, macaddr: MacAddress, progressbar: Progress
-) -> Optional[FoundHostMacaddr]:
+# -----------------------------------------------------------------------------
+#
+#                                 PRIVATE CODE BEGINS
+#
+# -----------------------------------------------------------------------------
 
-    tasks = [device_find_host_macaddr(host=host, macaddr=macaddr) for host in inventory]
+
+async def _search_network(
+    inventory: List[str], macaddr: MacAddress, progressbar: Progress
+) -> Optional[FindHostSearchResults]:
+    """
+    This function searches the network of the given inventory for the end-host
+    with thive MAC address.  If the end-host is found then the results are
+    retured in a "search results" dataclass. If not found, then return None.
+
+    Parameters
+    ----------
+    inventory: List[str]
+        The list of network devices to check.
+
+    macaddr: MacAddress
+        The end-host MAC addresss to locate
+
+    progressbar: Progress
+        A progress-bar CLI widget to indicate progress to the User.
+
+    Returns
+    -------
+    Optional[FindHostSearchResults] - as described.
+    """
+
+    tasks = [
+        _device_find_host_macaddr(device=device, macaddr=macaddr)
+        for device in inventory
+    ]
 
     pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
 
@@ -72,15 +124,37 @@ async def locate_host_macaddr(
     return found
 
 
-async def main(inventory: List[str], macaddr: MacAddress):
+async def _device_find_host_macaddr(
+    device: str, macaddr: MacAddress
+) -> Optional[FindHostSearchResults]:
+    """
+    This function examines a specific network device for the given end-host MAC
+    address.  If the MAC address is found on a network "edge-port" then return
+    the search results.  Otherwise, return None.
 
-    with Progress() as progressbar:
-        found = await locate_host_macaddr(
-            inventory, macaddr=macaddr, progressbar=progressbar
-        )
+    Parameters
+    ----------
+    device: str
+        The network device hostname
 
-    if not found:
-        print("Not found.")
-        return
+    macaddr: MacAddress
+        The end-host MAC address
 
-    print(f"Found on device {found.host}, interface {found.interface}")
+    Returns
+    -------
+    Optional[FindHostSearchResults] - as described.
+    """
+
+    async with Device(host=device) as dev:
+
+        # if the MAC address is not on this device, then return None.
+        if not (interface := await dev.find_macaddr(macaddr)):
+            return None
+
+        # if the MAC address is found, but not on an edge-port, then return
+        # None.
+        if not await dev.is_edge_port(interface=interface):
+            return None
+
+    # If here, then the MAC address was found on this device on an edge-port.
+    return FindHostSearchResults(device=device, interface=interface)

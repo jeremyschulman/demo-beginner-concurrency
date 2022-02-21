@@ -63,7 +63,8 @@ async def inventory_transceivers(
 
         for each_xcvr in dev_xcvrs:
             c_xcvr_types[each_xcvr.media_type] += 1
-            if each_xcvr.intf_oper_up is False:
+
+            if not each_xcvr.intf_oper_up:
                 intfs_down.append((dev_name, each_xcvr))
 
     return c_xcvr_types, intfs_down

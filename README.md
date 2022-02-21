@@ -22,6 +22,19 @@ verify via:
 
 ```shell
 demo --help
+
+Usage: demo [OPTIONS] COMMAND [ARGS]...
+
+  Beginner-Concurency Demo CLI
+
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
+
+Commands:
+  find-host  Find switch-port where host with mac-addresss
+  versions   Run inventory OS versions demo
+  xcvrs      Run inventory transceivers demo
 ```
 
 # Before You Begin

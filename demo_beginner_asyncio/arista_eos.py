@@ -2,19 +2,20 @@
 # System Imports
 # -----------------------------------------------------------------------------
 
-from typing import Optional
+from typing import Optional, List
 
 # -----------------------------------------------------------------------------
 # Public Imports
 # -----------------------------------------------------------------------------
 
 from aioeapi import Device as _Device
+from macaddr import MacAddress
 
 # -----------------------------------------------------------------------------
 # Private Imports
 # -----------------------------------------------------------------------------
 
-from .consts import VENDORS_IN_NETWORK, NETUSER_BASICAUTH
+from .netdefs import VENDORS_IN_NETWORK, NETUSER_BASICAUTH, XcvrStatus
 
 # -----------------------------------------------------------------------------
 # Exports
@@ -91,7 +92,7 @@ class Device(_Device):
 
         return True
 
-    async def find_macaddr(self, macaddr: str) -> Optional[str]:
+    async def find_macaddr(self, macaddr: MacAddress) -> Optional[str]:
         """
         This function returns the interface name if the given MAC address
         is found on the device.  If the MAC address is not found, then
@@ -100,13 +101,16 @@ class Device(_Device):
         Parameters
         ----------
         macaddr: str
-            The MAC address to locate, in the required format of two-octet,
-            colon-separated.
+            The MAC address to locate
 
         Returns
         -------
         Optonal[str]
         """
+
+        # Arista EOS uses the xx:yy:zz:aa:bb:cc format.
+        macaddr = macaddr.format(sep=":", size=2)
+
         res = await self.cli(command=f"show mac address-table address {macaddr}")
         # If the MAC address does not exist on the device, then return None.
 
@@ -117,3 +121,51 @@ class Device(_Device):
         # VLANs, so only examinging the first table record.
 
         return table_entries[0]["interface"]
+
+    async def inventory_xcvrs(self) -> List[XcvrStatus]:
+        """
+        This function returns a list containing each interface equipped with a transceiver.
+        Each list item is a XcvrStatus dataclass used to normalize the EOS specific CLI
+        payload values.
+
+        Returns
+        -------
+        List - could be empty.
+        """
+        results = list()
+
+        ifs_xcvr, ifs_status = await self.cli(
+            commands=["show interfaces transceiver hardware", "show interfaces status"]
+        )
+
+        ifs_xcvr = ifs_xcvr["interfaces"]
+        ifs_status = ifs_status["interfaceStatuses"]
+
+        for ifx_name, ifx_data in ifs_xcvr.items():
+
+            # the transceiver interface output will include each optic lane for
+            # a physical port, for example Ethernet50/1, Ethernet50/2, .... need
+            # to ensure that the xcvr interface-name is actually used; and if
+            # not, then stip the transceiver record.
+
+            if not (if_status := ifs_status.get(ifx_name)):
+                continue
+
+            # filter out interfaces like 2.5GB that are not transceivers, but still
+            # report results
+
+            if (ifx_type := ifx_data["detectedMediaType"]) != ifx_data["mediaType"]:
+                continue
+
+            # add a transceiver status record for the given interface
+
+            results.append(
+                XcvrStatus(
+                    media_type=ifx_type,
+                    intf_oper_up=if_status["lineProtocolStatus"] == "up",
+                    intf_name=ifx_name,
+                    intf_desc=if_status["description"],
+                )
+            )
+
+        return results

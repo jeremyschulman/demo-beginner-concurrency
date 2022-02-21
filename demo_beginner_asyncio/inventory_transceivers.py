@@ -2,9 +2,9 @@
 # System Imports
 # -----------------------------------------------------------------------------
 
-from typing import Tuple, Dict, List
+from typing import Tuple, List
 import asyncio
-from collections import Counter, defaultdict
+from collections import Counter
 
 # -----------------------------------------------------------------------------
 # Public Imports
@@ -19,6 +19,7 @@ from rich.table import Table
 
 from .arista_eos import Device
 from .progressbar import Progress
+from .netdefs import XcvrStatus
 
 # -----------------------------------------------------------------------------
 # Exports
@@ -33,31 +34,12 @@ __all__ = ["main"]
 # -----------------------------------------------------------------------------
 
 
-async def get_transceivers(host: str) -> Tuple[str, Dict]:
-    ifs_data = defaultdict(dict)
+async def get_transceivers(host: str) -> Tuple[str, List[XcvrStatus]]:
 
     async with Device(host=host) as dev:
-        ifs_xcvr, ifs_status = await dev.cli(
-            commands=["show interfaces transceiver hardware", "show interfaces status"]
-        )
+        intfs_xcvrs = await dev.inventory_xcvrs()
 
-    ifs_xcvr = ifs_xcvr["interfaces"]
-    ifs_status = ifs_status["interfaceStatuses"]
-
-    for ifx_name, ifx_data in ifs_xcvr.items():
-        if not (if_status := ifs_status.get(ifx_name)):
-            continue
-
-        # filter out interfaces like 2.5GB that are not transceivers, but still
-        # report results
-
-        if (ifx_type := ifx_data["detectedMediaType"]) != ifx_data["mediaType"]:
-            continue
-
-        ifs_data[ifx_name]["xcvr_type"] = ifx_type
-        ifs_data[ifx_name].update(if_status)
-
-    return host, ifs_data
+    return host, intfs_xcvrs
 
 
 async def inventory_transceivers(
@@ -65,25 +47,26 @@ async def inventory_transceivers(
 ) -> Tuple[Counter, List]:
 
     tasks = [get_transceivers(host=host) for host in inventory]
-    ifs_down = list()
-    ifx_types = Counter()
+    intfs_down = list()
+    c_xcvr_types = Counter()
 
     pgt = progressbar.add_task(description="Inventory transceivers", total=len(tasks))
 
     for this_dev in asyncio.as_completed(tasks):
 
-        host, ifx_data = await this_dev
+        dev_xcvrs: List[XcvrStatus]
+        dev_name, dev_xcvrs = await this_dev
         progressbar.advance(task_id=pgt, advance=1)
 
         # inventory each interface transceiver.  If the interfaces is not UP
         # then mark it as a potential unused transceiver for reclamation.
 
-        for if_name, if_data in ifx_data.items():
-            ifx_types[if_data["xcvr_type"]] += 1
-            if if_data["lineProtocolStatus"] != "up":
-                ifs_down.append((host, if_name, if_data))
+        for each_xcvr in dev_xcvrs:
+            c_xcvr_types[each_xcvr.media_type] += 1
+            if each_xcvr.intf_oper_up is False:
+                intfs_down.append((dev_name, each_xcvr))
 
-    return ifx_types, ifs_down
+    return c_xcvr_types, intfs_down
 
 
 def build_table_ifxcount(ifx_types, title=None) -> Table:
@@ -121,10 +104,12 @@ async def main(inventory: List[str]):
         title_justify="left",
     )
 
-    for host, if_name, if_data in ifs_down:
-        ifx_type = if_data["xcvr_type"]
-        ifs_down_table.add_row(host, if_name, if_data["description"], ifx_type)
-        ifs_down_count[ifx_type] += 1
+    xcvr_status: XcvrStatus
+    for host, xcvr_status in ifs_down:
+        ifs_down_table.add_row(
+            host, xcvr_status.intf_name, xcvr_status.intf_desc, xcvr_status.media_type
+        )
+        ifs_down_count[xcvr_status.media_type] += 1
 
     console.print("\n", ifs_down_table)
     console.print(

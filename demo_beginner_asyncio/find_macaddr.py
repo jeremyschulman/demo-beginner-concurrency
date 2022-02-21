@@ -39,7 +39,7 @@ class FoundHostMacaddr:
 
 
 async def device_find_host_macaddr(
-    host: str, macaddr: str
+    host: str, macaddr: MacAddress
 ) -> Optional[FoundHostMacaddr]:
 
     async with Device(host=host) as dev:
@@ -54,7 +54,7 @@ async def device_find_host_macaddr(
 
 
 async def locate_host_macaddr(
-    inventory, macaddr: str, progressbar: Progress
+    inventory, macaddr: MacAddress, progressbar: Progress
 ) -> Optional[FoundHostMacaddr]:
 
     tasks = [device_find_host_macaddr(host=host, macaddr=macaddr) for host in inventory]
@@ -73,9 +73,6 @@ async def locate_host_macaddr(
 
 
 async def main(inventory: List[str], macaddr: MacAddress):
-
-    # Arista EOS uses the xx:yy:zz:aa:bb:cc format.
-    macaddr = macaddr.format(sep=":", size=2)
 
     with Progress() as progressbar:
         found = await locate_host_macaddr(

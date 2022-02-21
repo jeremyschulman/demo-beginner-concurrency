@@ -32,10 +32,12 @@ __all__ = ["Device"]
 
 class Device(_Device):
     """
-    Subclass the Arista EOS async client to define methods we use for the network
-    use-case demonstrations.
+    Subclass the Arista EOS async client to define methods we use for the
+    network use-case demonstrations.
     """
 
+    # Arista eAPI uses basic-auth authentication.  Assigning this value once is
+    # used by all instances upon construction.
     auth = NETUSER_BASICAUTH
 
     async def is_edge_port(self, interface: str) -> bool:

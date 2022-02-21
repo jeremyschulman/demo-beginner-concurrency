@@ -9,7 +9,6 @@ from collections import Counter
 # Public Imports
 # -----------------------------------------------------------------------------
 
-from aioeapi import Device
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
@@ -18,7 +17,7 @@ from rich.progress import Progress
 # Private Imports
 # -----------------------------------------------------------------------------
 
-from .consts import NETUSER_BASICAUTH
+from .arista_eos import Device
 
 # -----------------------------------------------------------------------------
 # Exports
@@ -35,7 +34,7 @@ __all__ = ["main"]
 
 
 async def get_version(host: str):
-    async with Device(host=host, auth=NETUSER_BASICAUTH) as dev:
+    async with Device(host=host) as dev:
         return await dev.cli("show version")
 
 

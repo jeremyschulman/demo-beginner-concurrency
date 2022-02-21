@@ -10,7 +10,6 @@ from collections import Counter, defaultdict
 # Public Imports
 # -----------------------------------------------------------------------------
 
-from aioeapi import Device
 from rich.console import Console
 from rich.table import Table
 
@@ -18,8 +17,8 @@ from rich.table import Table
 # Private Imports
 # -----------------------------------------------------------------------------
 
+from .arista_eos import Device
 from .progressbar import Progress
-from .consts import NETUSER_BASICAUTH
 
 # -----------------------------------------------------------------------------
 # Exports
@@ -37,7 +36,7 @@ __all__ = ["main"]
 async def get_transceivers(host: str) -> Tuple[str, Dict]:
     ifs_data = defaultdict(dict)
 
-    async with Device(host=host, auth=NETUSER_BASICAUTH) as dev:
+    async with Device(host=host) as dev:
         ifs_xcvr, ifs_status = await dev.cli(
             commands=["show interfaces transceiver hardware", "show interfaces status"]
         )
@@ -87,8 +86,8 @@ async def inventory_transceivers(
     return ifx_types, ifs_down
 
 
-def build_table_ifxcount(ifx_types) -> Table:
-    report_table = Table("Media Type", "Count")
+def build_table_ifxcount(ifx_types, title=None) -> Table:
+    report_table = Table("Media Type", "Count", title=title, title_justify="left")
 
     for ifx_type, count in sorted(ifx_types.items()):
         report_table.add_row(ifx_type, str(count))
@@ -102,18 +101,36 @@ async def main(inventory: List[str]):
         ifx_types, ifs_down = await inventory_transceivers(inventory, progressbar)
 
     console = Console()
-    console.print(build_table_ifxcount(ifx_types))
+    console.print(
+        "\n",
+        build_table_ifxcount(
+            ifx_types, title=f"{sum(ifx_types.values())} Total Transceivers by Type"
+        ),
+    )
 
     if not ifs_down:
         return
 
     ifs_down_count = Counter()
-    ifs_down_table = Table("Device", "Interface", "Descr", "Media Type")
+    ifs_down_table = Table(
+        "Device",
+        "Interface",
+        "Descr",
+        "Media Type",
+        title="Interfaces with unused transceivers",
+        title_justify="left",
+    )
 
     for host, if_name, if_data in ifs_down:
         ifx_type = if_data["xcvr_type"]
         ifs_down_table.add_row(host, if_name, if_data["description"], ifx_type)
         ifs_down_count[ifx_type] += 1
 
-    console.print(ifs_down_table)
-    console.print(build_table_ifxcount(ifs_down_count))
+    console.print("\n", ifs_down_table)
+    console.print(
+        "\n",
+        build_table_ifxcount(
+            ifs_down_count,
+            title=f"{sum(ifs_down_count.values())} Unused Transceivers by Type",
+        ),
+    )

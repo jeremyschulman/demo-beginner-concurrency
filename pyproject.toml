@@ -9,7 +9,8 @@ python = "^3.8"
 aio-eapi = "^0.2.2"
 rich = "^11.2.0"
 macaddr = "^2.1"
-httpx = "0.20.0"
+httpx = "0.22.0"
+httpcore = "0.14.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

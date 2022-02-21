@@ -11,5 +11,5 @@ class Progress(progress.Progress):
             progress.TextColumn("[progress.description]{task.description}"),
             progress.BarColumn(),
             progress.TextColumn("[progress.percentage]{task.completed}/{task.total}"),
-            progress.TimeRemainingColumn(),
+            progress.TimeElapsedColumn(),
         )

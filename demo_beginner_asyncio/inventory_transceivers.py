@@ -5,6 +5,7 @@
 from typing import Tuple, List
 import asyncio
 from collections import Counter
+from timeit import default_timer as timer
 
 # -----------------------------------------------------------------------------
 # Public Imports
@@ -50,9 +51,17 @@ async def main(inventory: List[str]):
         The list of network devices to collect transceiver information.
     """
 
+    start_ts = timer()
+
     with Progress() as progressbar:
         ifx_types, ifs_down = await _inventory_network(inventory, progressbar)
 
+    end_ts = timer()
+    _report(ifx_types, ifs_down)
+    print(f"elapsed time: {end_ts - start_ts}")
+
+
+def _report(ifx_types, ifs_down):
     console = Console()
     console.print(
         "\n",

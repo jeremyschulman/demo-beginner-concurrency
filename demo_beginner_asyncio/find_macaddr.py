@@ -113,15 +113,13 @@ async def _search_network(
 
     pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
 
-    found = None
-
     for this_dev in asyncio.as_completed(tasks):
         found = await this_dev
         progressbar.update(pb_task, advance=1)
         if found:
-            break
+            return found
 
-    return found
+    return None
 
 
 async def _device_find_host_macaddr(

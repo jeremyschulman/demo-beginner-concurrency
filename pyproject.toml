@@ -6,8 +6,11 @@ authors = ["Jeremy Schulman <jeremy.schulman@mlb.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-rich = "^11.2.0"
 aio-eapi = "^0.2.2"
+rich = "^11.2.0"
+macaddr = "^2.1"
+httpx = "0.22.0"
+httpcore = "0.14.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
@@ -27,6 +30,6 @@ build-backend = "poetry.core.masonry.api"
     ignore-module = true
     exclude = ["tasks.py", "examples", "build", "venv"]
 
-#[tool.poetry.scripts]
-#    netcad = 'netcad.cli.netcad:script'
-#    netcam = 'netcad.cli.netcam:script'
+
+[tool.poetry.scripts]
+    demo = 'demo_beginner_asyncio.cli:main'

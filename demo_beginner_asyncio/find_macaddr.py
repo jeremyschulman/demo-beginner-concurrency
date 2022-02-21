@@ -98,7 +98,7 @@ async def locate_host_macaddr(
     auth = get_network_auth()
 
     tasks = [
-        device_find_host_macaddr(host=host, auth=auth, macaddr=macaddr)
+        asyncio.create_task(device_find_host_macaddr(host=host, auth=auth, macaddr=macaddr))
         for host in inventory
     ]
 
@@ -111,6 +111,9 @@ async def locate_host_macaddr(
             break
     else:
         return None
+
+    for task in asyncio.all_tasks():
+        task.cancel()
 
     return found
 

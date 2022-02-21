@@ -114,11 +114,12 @@ async def _search_network(
     pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
 
     for this_dev in asyncio.as_completed(tasks):
-        found = await this_dev
         progressbar.update(pb_task, advance=1)
-        if found:
+
+        if found := await this_dev:
             return found
 
+    # not found in the inventory of devices
     return None
 
 
@@ -154,5 +155,5 @@ async def _device_find_host_macaddr(
         if not await dev.is_edge_port(interface=interface):
             return None
 
-    # If here, then the MAC address was found on this device on an edge-port.
-    return FindHostSearchResults(device=device, interface=interface)
+        # If here, then the MAC address was found on this device on an edge-port.
+        return FindHostSearchResults(device=device, interface=interface)

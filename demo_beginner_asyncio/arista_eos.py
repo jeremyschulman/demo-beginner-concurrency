@@ -174,7 +174,8 @@ class Device(_Device):
         """
         Override the async exit context manager since closing a session with
         requests in-flight is causing RuntimeError exceptions in httpcore
-        verision 0.14.7 (latest at this time).
+        verision 0.14.7 (latest at this time).  See source code:
+        https://github.com/encode/httpcore/blob/master/httpcore/_async/connection_pool.py#L299
 
         Notes
         -----
@@ -187,7 +188,7 @@ class Device(_Device):
         try:
             await super().__aexit__(*vargs, **kwargs)
         except RuntimeError as exc:
-            if "requests/responses were still in-flight" in exc.args[0]:
+            if "in-flight" in exc.args[0]:
                 return
 
             raise exc

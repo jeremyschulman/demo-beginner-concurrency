@@ -64,29 +64,31 @@ async def main(inventory: List[str]):
     if not ifs_down:
         return
 
-    ifs_down_count = Counter()
+    cntr_ifs_down = Counter()
     ifs_down_table = Table(
         "Device",
         "Interface",
         "Descr",
         "Media Type",
-        title="Interfaces with unused transceivers",
         title_justify="left",
     )
 
-    xcvr_status: XcvrStatus
     for host, xcvr_status in ifs_down:
         ifs_down_table.add_row(
             host, xcvr_status.intf_name, xcvr_status.intf_desc, xcvr_status.media_type
         )
-        ifs_down_count[xcvr_status.media_type] += 1
+        cntr_ifs_down[xcvr_status.media_type] += 1
 
+    total_ifs_down = sum(cntr_ifs_down.values())
+    ifs_down_table.title = (
+        f"{total_ifs_down} Interfaces with potentially unused transceivers"
+    )
     console.print("\n", ifs_down_table)
     console.print(
         "\n",
         _build_table_ifxcount(
-            ifs_down_count,
-            title=f"{sum(ifs_down_count.values())} Unused Transceivers by Type",
+            cntr_ifs_down,
+            title=f"{total_ifs_down} Unused Transceivers by Type",
         ),
     )
 

@@ -117,11 +117,9 @@ async def _search_network(
         found = await this_dev
         progressbar.update(pb_task, advance=1)
         if found:
-            break
-    else:
-        return None
+            return found
 
-    return found
+    return None
 
 
 async def _device_find_host_macaddr(

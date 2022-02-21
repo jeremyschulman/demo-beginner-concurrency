@@ -1,20 +1,74 @@
+# -----------------------------------------------------------------------------
+# System Imports
+# -----------------------------------------------------------------------------
+
 from typing import Optional
+
+# -----------------------------------------------------------------------------
+# Public Imports
+# -----------------------------------------------------------------------------
 
 from aioeapi import Device as _Device
 
+# -----------------------------------------------------------------------------
+# Private Imports
+# -----------------------------------------------------------------------------
+
 from .consts import VENDORS_IN_NETWORK, NETUSER_BASICAUTH
+
+# -----------------------------------------------------------------------------
+# Exports
+# -----------------------------------------------------------------------------
+
+__all__ = ["Device"]
+
+
+# -----------------------------------------------------------------------------
+#
+#                                 CODE BEGINS
+#
+# -----------------------------------------------------------------------------
 
 
 class Device(_Device):
+    """
+    Subclass the Arista EOS async client to define methods we use for the network
+    use-case demonstrations.
+    """
+
     auth = NETUSER_BASICAUTH
 
     async def is_edge_port(self, interface: str) -> bool:
+        """
+        This function returns True if the given interface is considered and "edge-port"
+        where an end-host is connected, False otherwise.
+
+        The criteria to determine an edge-port:
+
+            (1) Must be an Ethernet port, not any virtual-port construct like Port Channel.
+                For demo purposes, not a "real-world" criteria, however.
+
+            (2a) If host provides LLDP, then the host-system must not be a known network
+                vendor
+
+            (2b) If host is not using LLDP
+
+        Parameters
+        ----------
+        interface: str
+
+        Returns
+        -------
+        bool
+        """
+
         # if the interface name is not an Ethernet<X> port, then it is not an
         # edge port
 
         if not interface.startswith("Eth"):
             return False
 
+        # Check LLDP status
         res = await self.cli(f"show lldp neighbors {interface} detail")
 
         # if there is no LLDP neighbor, then it is by default an edge port.
@@ -36,6 +90,21 @@ class Device(_Device):
         return True
 
     async def find_macaddr(self, macaddr: str) -> Optional[str]:
+        """
+        This function returns the interface name if the given MAC address
+        is found on the device.  If the MAC address is not found, then
+        return None.
+
+        Parameters
+        ----------
+        macaddr: str
+            The MAC address to locate, in the required format of two-octet,
+            colon-separated.
+
+        Returns
+        -------
+        Optonal[str]
+        """
         res = await self.cli(command=f"show mac address-table address {macaddr}")
         # If the MAC address does not exist on the device, then return None.
 

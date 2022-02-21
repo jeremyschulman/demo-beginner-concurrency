@@ -72,7 +72,7 @@ async def main(inventory: List[str], macaddr: MacAddress):
         print("Not found.")
         return
 
-    print(f"Found on device {found.device}, interface {found.interface}")
+    print(f"Found {macaddr} on device {found.device}, interface {found.interface}")
 
 
 # -----------------------------------------------------------------------------

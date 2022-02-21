@@ -107,19 +107,22 @@ async def _search_network(
     """
 
     tasks = [
-        _device_find_host_macaddr(device=device, macaddr=macaddr)
+        asyncio.create_task(_device_find_host_macaddr(device=device, macaddr=macaddr))
         for device in inventory
     ]
 
     pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
-
-    found = None
 
     for this_dev in asyncio.as_completed(tasks):
         found = await this_dev
         progressbar.update(pb_task, advance=1)
         if found:
             break
+    else:
+        return None
+
+    for task in tasks:
+        task.cancel()
 
     return found
 

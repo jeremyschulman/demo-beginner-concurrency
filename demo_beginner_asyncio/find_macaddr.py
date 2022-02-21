@@ -1,6 +1,14 @@
+# =============================================================================
+# Purpose:
+# --------
+#    This file contains the main async funciton responsible for finding a
+#    connected end-host on the network, given the host's MAC address value.
+# =============================================================================
+
 # -----------------------------------------------------------------------------
 # System Imports
 # -----------------------------------------------------------------------------
+
 import asyncio
 from typing import List, Optional
 from dataclasses import dataclass
@@ -8,16 +16,15 @@ from dataclasses import dataclass
 # -----------------------------------------------------------------------------
 # Public Imports
 # -----------------------------------------------------------------------------
-import httpx
-from aioeapi import Device
+
 from macaddr import MacAddress
 
 # -----------------------------------------------------------------------------
 # Private Imports
 # -----------------------------------------------------------------------------
 
-from .auth import get_network_auth
 from .progressbar import Progress
+from .arista_eos import Device
 
 # -----------------------------------------------------------------------------
 # Exports
@@ -32,96 +39,32 @@ __all__ = ["main"]
 # -----------------------------------------------------------------------------
 
 
-VENDORS_IN_NETWORK = ("cisco", "arista", "extreme")
-g_htpx_limits = httpx.Limits(max_keepalive_connections=0, max_connections=1)
-
-
 @dataclass()
-class FoundHostMacaddr:
-    host: str
-    interface: str
+class FindHostSearchResults:
+    """Identifies where the end-host was found on the network"""
 
-
-async def is_edge_port(device: Device, interface: str) -> bool:
-
-    res = await device.cli(f"show lldp neighbors {interface} detail")
-
-    # if there is no LLDP neighbor, then it is by default an edge port.
-    if not (nei_data := res["lldpNeighbors"][interface]["lldpNeighborInfo"]):
-        return True
-
-    # if there is LLDP data, then let's ensure it is not another network device
-    # for demo purposes, checking the sysDesc value for name of known vendors
-    # Only going to look at the first entry in this table (demo purposes) if
-    # LLDP neighbor is a network vendor, then it is not an edge-port.
-
-    sys_desc = nei_data[0]["neighborInterfaceInfo"]["systemDescription"].lower()
-    if any(vendor in sys_desc for vendor in VENDORS_IN_NETWORK):
-        return False
-
-    # If LLDP neighbor exists is not a known network vendor, then this is an
-    # edge-port.
-
-    return True
-
-
-async def device_find_host_macaddr(
-    host: str, auth, macaddr: str
-) -> Optional[FoundHostMacaddr]:
-
-    async with Device(host=host, auth=auth, limits=g_htpx_limits) as dev:
-        res = await dev.cli(command=f"show mac address-table address {macaddr}")
-        # If the MAC address does not exist on the device, then return None.
-
-        if not (table_entries := res["unicastTable"]["tableEntries"]):
-            return None
-
-        # The MAC address should only be on one port; could be on multiple
-        # VLANs, so only examinging the first table record.  Also, only check
-        # actual phyiscal ethernet ports.
-
-        interface = table_entries[0]["interface"]
-        if not interface.startswith("Eth"):
-            return None
-
-        if await is_edge_port(device=dev, interface=interface):
-            return FoundHostMacaddr(host=host, interface=interface)
-
-    # not found device edge-port
-    return None
-
-
-async def locate_host_macaddr(
-    inventory, macaddr: str, progressbar: Progress
-) -> Optional[FoundHostMacaddr]:
-
-    auth = get_network_auth()
-
-    tasks = [
-        device_find_host_macaddr(host=host, auth=auth, macaddr=macaddr)
-        for host in inventory
-    ]
-
-    pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
-
-    for this_dev in asyncio.as_completed(tasks):
-        found = await this_dev
-        progressbar.update(pb_task, advance=1)
-        if found:
-            break
-    else:
-        return None
-
-    return found
+    device: str  # the network device hostname
+    interface: str  # the interface on the network device
 
 
 async def main(inventory: List[str], macaddr: MacAddress):
+    """
+    Given an inventory of devices and the MAC address to locate, try to find
+    the location of the end-host.  As a result of checking the network, the
+    User will see an output of either "found" identifying the network device
+    and port, or "Not found".
 
-    # Arista EOS uses the xx:yy:zz:aa:bb:cc format.
-    macaddr = macaddr.format(sep=":", size=2)
+    Parameters
+    ----------
+    inventory: List[str]
+        The list of network devices to check.
+
+    macaddr: MacAddress
+        The end-host MAC addresss to locate
+    """
 
     with Progress() as progressbar:
-        found = await locate_host_macaddr(
+        found = await _search_network(
             inventory, macaddr=macaddr, progressbar=progressbar
         )
 
@@ -129,4 +72,89 @@ async def main(inventory: List[str], macaddr: MacAddress):
         print("Not found.")
         return
 
-    print(f"Found on device {found.host}, interface {found.interface}")
+    print(f"Found on device {found.device}, interface {found.interface}")
+
+
+# -----------------------------------------------------------------------------
+#
+#                                 PRIVATE CODE BEGINS
+#
+# -----------------------------------------------------------------------------
+
+
+async def _search_network(
+    inventory: List[str], macaddr: MacAddress, progressbar: Progress
+) -> Optional[FindHostSearchResults]:
+    """
+    This function searches the network of the given inventory for the end-host
+    with thive MAC address.  If the end-host is found then the results are
+    retured in a "search results" dataclass. If not found, then return None.
+
+    Parameters
+    ----------
+    inventory: List[str]
+        The list of network devices to check.
+
+    macaddr: MacAddress
+        The end-host MAC addresss to locate
+
+    progressbar: Progress
+        A progress-bar CLI widget to indicate progress to the User.
+
+    Returns
+    -------
+    Optional[FindHostSearchResults] - as described.
+    """
+
+    tasks = [
+        _device_find_host_macaddr(device=device, macaddr=macaddr)
+        for device in inventory
+    ]
+
+    pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
+
+    found = None
+
+    for this_dev in asyncio.as_completed(tasks):
+        found = await this_dev
+        progressbar.update(pb_task, advance=1)
+        if found:
+            break
+
+    return found
+
+
+async def _device_find_host_macaddr(
+    device: str, macaddr: MacAddress
+) -> Optional[FindHostSearchResults]:
+    """
+    This function examines a specific network device for the given end-host MAC
+    address.  If the MAC address is found on a network "edge-port" then return
+    the search results.  Otherwise, return None.
+
+    Parameters
+    ----------
+    device: str
+        The network device hostname
+
+    macaddr: MacAddress
+        The end-host MAC address
+
+    Returns
+    -------
+    Optional[FindHostSearchResults] - as described.
+    """
+
+    async with Device(host=device) as dev:
+
+        # if the MAC address is not on this device, then return None.
+        if not (interface := await dev.find_macaddr(macaddr)):
+            return None
+
+        # if the MAC address is found, but not on an edge-port, then return
+        # None.
+        if not await dev.is_edge_port(interface=interface):
+            return None
+
+    # If here, then the MAC address was found on this device on an edge-port.
+    return FindHostSearchResults(device=device, interface=interface)

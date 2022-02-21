@@ -9,7 +9,6 @@ from collections import Counter
 # Public Imports
 # -----------------------------------------------------------------------------
 
-from aioeapi import Device
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
@@ -18,7 +17,7 @@ from rich.progress import Progress
 # Private Imports
 # -----------------------------------------------------------------------------
 
-from .auth import get_network_auth
+from .arista_eos import Device
 
 # -----------------------------------------------------------------------------
 # Exports
@@ -34,14 +33,13 @@ __all__ = ["main"]
 # -----------------------------------------------------------------------------
 
 
-async def get_version(host: str, auth):
-    async with Device(host=host, auth=auth) as dev:
+async def get_version(host: str):
+    async with Device(host=host) as dev:
         return await dev.cli("show version")
 
 
 async def inventory_versions(inventory):
-    auth = get_network_auth()
-    tasks = [get_version(host=host, auth=auth) for host in inventory]
+    tasks = [get_version(host=host) for host in inventory]
     results = Counter()
 
     with Progress() as progress:

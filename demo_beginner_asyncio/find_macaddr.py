@@ -126,7 +126,7 @@ async def main(inventory: List[str], macaddr: MacAddress):
         )
 
     if not found:
-        print("Not found on any network-edge port")
+        print("Not found.")
         return
 
     print(f"Found on device {found.host}, interface {found.interface}")

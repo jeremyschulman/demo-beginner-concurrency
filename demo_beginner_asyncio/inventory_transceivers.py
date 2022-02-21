@@ -34,60 +34,29 @@ __all__ = ["main"]
 # -----------------------------------------------------------------------------
 
 
-async def get_transceivers(host: str) -> Tuple[str, List[XcvrStatus]]:
-
-    async with Device(host=host) as dev:
-        intfs_xcvrs = await dev.inventory_xcvrs()
-
-    return host, intfs_xcvrs
-
-
-async def inventory_transceivers(
-    inventory: List[str], progressbar: Progress
-) -> Tuple[Counter, List]:
-
-    tasks = [get_transceivers(host=host) for host in inventory]
-    intfs_down = list()
-    c_xcvr_types = Counter()
-
-    pgt = progressbar.add_task(description="Inventory transceivers", total=len(tasks))
-
-    for this_dev in asyncio.as_completed(tasks):
-
-        dev_xcvrs: List[XcvrStatus]
-        dev_name, dev_xcvrs = await this_dev
-        progressbar.advance(task_id=pgt, advance=1)
-
-        # inventory each interface transceiver.  If the interfaces is not UP
-        # then mark it as a potential unused transceiver for reclamation.
-
-        for each_xcvr in dev_xcvrs:
-            c_xcvr_types[each_xcvr.media_type] += 1
-
-            if not each_xcvr.intf_oper_up:
-                intfs_down.append((dev_name, each_xcvr))
-
-    return c_xcvr_types, intfs_down
-
-
-def build_table_ifxcount(ifx_types, title=None) -> Table:
-    report_table = Table("Media Type", "Count", title=title, title_justify="left")
-
-    for ifx_type, count in sorted(ifx_types.items()):
-        report_table.add_row(ifx_type, str(count))
-
-    return report_table
-
-
 async def main(inventory: List[str]):
+    """
+    The main entrypoint for gathering information about the transceivers used
+    in the network.  As a result of running this function, the User will
+    see a set of tabular output for:
+
+        (1) Table of all transceiver types and their count
+        (2) Table of interfaces with transcievers, operationally down
+        (3) Table of the "down interfaces" transceiver types and their count
+
+    Parameters
+    ----------
+    inventory: List[str]
+        The list of network devices to collect transceiver information.
+    """
 
     with Progress() as progressbar:
-        ifx_types, ifs_down = await inventory_transceivers(inventory, progressbar)
+        ifx_types, ifs_down = await _inventory_network(inventory, progressbar)
 
     console = Console()
     console.print(
         "\n",
-        build_table_ifxcount(
+        _build_table_ifxcount(
             ifx_types, title=f"{sum(ifx_types.values())} Total Transceivers by Type"
         ),
     )
@@ -115,8 +84,113 @@ async def main(inventory: List[str]):
     console.print("\n", ifs_down_table)
     console.print(
         "\n",
-        build_table_ifxcount(
+        _build_table_ifxcount(
             ifs_down_count,
             title=f"{sum(ifs_down_count.values())} Unused Transceivers by Type",
         ),
     )
+
+
+# -----------------------------------------------------------------------------
+#
+#                                 PRIVATE CODE BEGINS
+#
+# -----------------------------------------------------------------------------
+
+
+async def _inventory_network(
+    inventory: List[str], progressbar: Progress
+) -> Tuple[Counter, List[Tuple[str, XcvrStatus]]]:
+    """
+    This function retrieves the transceivers for each network device in the
+    inventory provided.
+
+    Parameters
+    ----------
+    inventory: List[str]
+        The network devices to gather transceiver information from.
+
+    progressbar: Progress
+        A progress bar CLI widget to show progress to the User.
+
+    Returns
+    -------
+    Tuple:
+        Counter - key is the transceiver media-type, value is the number of this type
+        List - network device interfaces that are operationally down
+    """
+    tasks = [_device_get_transceivers(device) for device in inventory]
+    intfs_down = list()
+    c_xcvr_types = Counter()
+
+    pgt = progressbar.add_task(description="Inventory transceivers", total=len(tasks))
+
+    for this_dev in asyncio.as_completed(tasks):
+
+        dev_xcvrs: List[XcvrStatus]
+        dev_name, dev_xcvrs = await this_dev
+        progressbar.advance(task_id=pgt, advance=1)
+
+        # inventory each interface transceiver.  If the interfaces is not UP
+        # then mark it as a potential unused transceiver for reclamation.
+
+        for each_xcvr in dev_xcvrs:
+            c_xcvr_types[each_xcvr.media_type] += 1
+
+            if not each_xcvr.intf_oper_up:
+                intfs_down.append((dev_name, each_xcvr))
+
+    return c_xcvr_types, intfs_down
+
+
+async def _device_get_transceivers(device: str) -> Tuple[str, List[XcvrStatus]]:
+    """
+    This function returns the transceiver status information for a given
+    network device.
+
+    Parameters
+    ----------
+    device: str
+        The network device hostname
+
+    Returns
+    -------
+    Tuple:
+        str - the network device hostname
+        List - the list of transceivers on the device
+
+    Notes
+    -----
+    The device hostname is returned via the Tuple so that the calling asyncio
+    as_completed results has the context of the results.
+    """
+
+    async with Device(host=device) as dev:
+        intfs_xcvrs = await dev.inventory_xcvrs()
+
+    return device, intfs_xcvrs
+
+
+def _build_table_ifxcount(ifx_types: Counter, title) -> Table:
+    """
+    This function returns a rich.Table containing the transceiver media-type
+    names as associated count values.
+
+    Parameters
+    ----------
+    ifx_types: Counter
+        The instance of media-type coounts
+
+    title: str
+        The table title
+
+    Returns
+    -------
+    As described
+    """
+    report_table = Table("Media Type", "Count", title=title, title_justify="left")
+
+    for ifx_type, count in sorted(ifx_types.items()):
+        report_table.add_row(ifx_type, str(count))
+
+    return report_table

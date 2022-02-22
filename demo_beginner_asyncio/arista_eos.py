@@ -83,7 +83,14 @@ class Device(_Device):
         # Only going to look at the first entry in this table (demo purposes) if
         # LLDP neighbor is a network vendor, then it is not an edge-port.
 
-        sys_desc = nei_data[0]["neighborInterfaceInfo"]["systemDescription"].lower()
+        nei_rec = nei_data[0]
+
+        sys_desc = (
+            nei_rec.get("systemDescription")
+            or nei_rec.get("neighborInterfaceInfo", {}).get("systemDescription")
+            or ""
+        )
+
         if any(vendor in sys_desc for vendor in VENDORS_IN_NETWORK):
             return False
 

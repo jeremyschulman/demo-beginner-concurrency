@@ -5,6 +5,7 @@
 from typing import Tuple, List
 import asyncio
 from collections import Counter
+from timeit import default_timer as timer
 
 # -----------------------------------------------------------------------------
 # Public Imports
@@ -50,9 +51,17 @@ async def main(inventory: List[str]):
         The list of network devices to collect transceiver information.
     """
 
+    start_ts = timer()
+
     with Progress() as progressbar:
         ifx_types, ifs_down = await _inventory_network(inventory, progressbar)
 
+    end_ts = timer()
+    _report(ifx_types, ifs_down)
+    print(f"elapsed time: {end_ts - start_ts}")
+
+
+def _report(ifx_types, ifs_down):
     console = Console()
     console.print(
         "\n",
@@ -121,7 +130,7 @@ async def _inventory_network(
         Counter - key is the transceiver media-type, value is the number of this type
         List - network device interfaces that are operationally down
     """
-    tasks = [_device_get_transceivers(device) for device in inventory]
+    tasks = [device_get_transceivers(device) for device in inventory]
     intfs_down = list()
     c_xcvr_types = Counter()
 
@@ -145,7 +154,7 @@ async def _inventory_network(
     return c_xcvr_types, intfs_down
 
 
-async def _device_get_transceivers(device: str) -> Tuple[str, List[XcvrStatus]]:
+async def device_get_transceivers(device: str) -> Tuple[str, List[XcvrStatus]]:
     """
     This function returns the transceiver status information for a given
     network device.

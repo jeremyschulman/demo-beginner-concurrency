@@ -21,9 +21,10 @@ from macaddr import MacAddress
 # -----------------------------------------------------------------------------
 
 from . import __version__
-from . import inventory_transceivers
-from . import inventory_versions
 from . import find_macaddr
+from . import inventory_transceivers
+from . import mp_xcvrs
+from . import inventory_versions
 
 # -----------------------------------------------------------------------------
 #
@@ -52,7 +53,7 @@ def cli():
     "-i", "--inventory", default="inventory.text", callback=_cbk_opt_inventory
 )
 def cli_inventory_xcvrs(inventory):
-    """Run inventory transceivers demo"""
+    """Inventory transceivers demo"""
     asyncio.run(inventory_transceivers.main(inventory=inventory))
 
 
@@ -61,7 +62,7 @@ def cli_inventory_xcvrs(inventory):
     "-i", "--inventory", default="inventory.text", callback=_cbk_opt_inventory
 )
 def cli_inventory_versions(inventory):
-    """Run inventory OS versions demo"""
+    """Inventory OS versions demo"""
     asyncio.run(inventory_versions.main(inventory=inventory))
 
 
@@ -81,6 +82,15 @@ def cli_find_macaddr(ctx: click.Context, inventory: List[str], macaddr: str):
 
     print(f"Locating switch-port for host with MAC-Address {macaddr}")
     asyncio.run(find_macaddr.main(inventory=inventory, macaddr=macaddr))
+
+
+@cli.command(name="mp-xcvrs")
+@click.option(
+    "-i", "--inventory", default="inventory.text", callback=_cbk_opt_inventory
+)
+def cli_mp_xcvrs(inventory: List[str]):
+    """Inventory transcievers using multiprocessors"""
+    mp_xcvrs.main(inventory)
 
 
 # -----------------------------------------------------------------------------

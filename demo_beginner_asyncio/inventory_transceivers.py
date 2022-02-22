@@ -130,7 +130,7 @@ async def _inventory_network(
         Counter - key is the transceiver media-type, value is the number of this type
         List - network device interfaces that are operationally down
     """
-    tasks = [_device_get_transceivers(device) for device in inventory]
+    tasks = [device_get_transceivers(device) for device in inventory]
     intfs_down = list()
     c_xcvr_types = Counter()
 
@@ -154,7 +154,7 @@ async def _inventory_network(
     return c_xcvr_types, intfs_down
 
 
-async def _device_get_transceivers(device: str) -> Tuple[str, List[XcvrStatus]]:
+async def device_get_transceivers(device: str) -> Tuple[str, List[XcvrStatus]]:
     """
     This function returns the transceiver status information for a given
     network device.

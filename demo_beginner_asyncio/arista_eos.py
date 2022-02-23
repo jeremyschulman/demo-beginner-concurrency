@@ -60,7 +60,7 @@ class Device(_Device):
     """
 
     def __init__(self, *vargs, **kwargs):
-        super(Device, self).__init__(
+        super().__init__(
             *vargs, transport=SafeAsyncHTTPTransport(verify=False), **kwargs
         )
 

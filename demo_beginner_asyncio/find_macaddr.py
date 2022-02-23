@@ -112,27 +112,36 @@ async def _search_network(
         for device in inventory
     }
 
+    found = None
+    search_completed = asyncio.Event()
+
     pb_task = progressbar.add_task(
         description="Locating host", total=len(check_device_tasks)
     )
 
-    search_result = asyncio.Queue(maxsize=1)
-
     def _on_done(done_task: asyncio.Task):
+        nonlocal found
         progressbar.update(pb_task, advance=1)
         check_device_tasks.remove(done_task)
 
         with contextlib.suppress(asyncio.CancelledError):
             if _result := done_task.result():
-                search_result.put_nowait(_result)
-
+                found = _result
+                search_completed.set()
             elif not check_device_tasks:
-                search_result.put_nowait(None)
+                search_completed.set()
 
     for todo in check_device_tasks:
         todo.add_done_callback(_on_done)
 
-    return await search_result.get()
+    # wait for the search to be over, and if found, then cancel any of the
+    # remaining check tasks.
+
+    await search_completed.wait()
+    for remainder in check_device_tasks:
+        remainder.cancel()
+
+    return found
 
 
 async def _device_find_host_macaddr(

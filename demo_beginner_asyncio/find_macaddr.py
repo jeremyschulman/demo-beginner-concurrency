@@ -125,10 +125,10 @@ async def _search_network(
         check_device_tasks.remove(done_task)
 
         with contextlib.suppress(asyncio.CancelledError):
-            if _result := done_task.result():
+            if _result := done_task.result():  # found macaddr on device edge-port
                 found = _result
                 search_completed.set()
-            elif not check_device_tasks:
+            elif not check_device_tasks:  # done with all device-checks
                 search_completed.set()
 
     for todo in check_device_tasks:
@@ -138,6 +138,7 @@ async def _search_network(
     # remaining check tasks.
 
     await search_completed.wait()
+
     for remainder in check_device_tasks:
         remainder.cancel()
 

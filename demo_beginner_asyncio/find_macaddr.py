@@ -64,6 +64,7 @@ async def main(inventory: List[str], macaddr: MacAddress):
     """
 
     with Progress() as progressbar:
+
         found = await _search_network(
             inventory, macaddr=macaddr, progressbar=progressbar
         )
@@ -106,21 +107,46 @@ async def _search_network(
     Optional[FindHostSearchResults] - as described.
     """
 
-    tasks = [
-        _device_find_host_macaddr(device=device, macaddr=macaddr)
+    check_device_tasks = {
+        asyncio.create_task(_device_find_host_macaddr(device=device, macaddr=macaddr))
         for device in inventory
-    ]
+    }
 
-    pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
+    found = None
+    search_completed = asyncio.Event()
 
-    for this_dev in asyncio.as_completed(tasks):
+    pb_task = progressbar.add_task(
+        description="Locating host", total=len(check_device_tasks)
+    )
+
+    def _on_done(done_task: asyncio.Task):
+        nonlocal found
+        check_device_tasks.remove(done_task)
+
+        if done_task.cancelled():
+            return
+
         progressbar.update(pb_task, advance=1)
 
-        if found := await this_dev:
-            return found
+        if _result := done_task.result():  # found macaddr on device edge-port
+            found = _result
+            search_completed.set()
 
-    # not found in the inventory of devices
-    return None
+        elif not check_device_tasks:  # done with all device-checks
+            search_completed.set()
+
+    for todo in check_device_tasks:
+        todo.add_done_callback(_on_done)
+
+    # wait for the search to be over, and if found, then cancel any of the
+    # remaining check tasks.
+
+    await search_completed.wait()
+
+    for pending in check_device_tasks:
+        pending.cancel()
+
+    return found
 
 
 async def _device_find_host_macaddr(
@@ -145,7 +171,6 @@ async def _device_find_host_macaddr(
     """
 
     async with Device(host=device) as dev:
-
         # if the MAC address is not on this device, then return None.
         if not (interface := await dev.find_macaddr(macaddr)):
             return None
@@ -156,4 +181,4 @@ async def _device_find_host_macaddr(
             return None
 
         # If here, then the MAC address was found on this device on an edge-port.
-        return FindHostSearchResults(device=device, interface=interface)
+        return FindHostSearchResults(device=dev.host, interface=interface)

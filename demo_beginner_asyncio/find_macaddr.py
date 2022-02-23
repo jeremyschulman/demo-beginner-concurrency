@@ -10,7 +10,6 @@
 # -----------------------------------------------------------------------------
 
 import asyncio
-import contextlib
 from typing import List, Optional
 from dataclasses import dataclass
 
@@ -65,6 +64,7 @@ async def main(inventory: List[str], macaddr: MacAddress):
     """
 
     with Progress() as progressbar:
+
         found = await _search_network(
             inventory, macaddr=macaddr, progressbar=progressbar
         )
@@ -121,15 +121,19 @@ async def _search_network(
 
     def _on_done(done_task: asyncio.Task):
         nonlocal found
-        progressbar.update(pb_task, advance=1)
         check_device_tasks.remove(done_task)
 
-        with contextlib.suppress(asyncio.CancelledError):
-            if _result := done_task.result():  # found macaddr on device edge-port
-                found = _result
-                search_completed.set()
-            elif not check_device_tasks:  # done with all device-checks
-                search_completed.set()
+        if done_task.cancelled():
+            return
+
+        progressbar.update(pb_task, advance=1)
+
+        if _result := done_task.result():  # found macaddr on device edge-port
+            found = _result
+            search_completed.set()
+
+        elif not check_device_tasks:  # done with all device-checks
+            search_completed.set()
 
     for todo in check_device_tasks:
         todo.add_done_callback(_on_done)
@@ -139,8 +143,8 @@ async def _search_network(
 
     await search_completed.wait()
 
-    for remainder in check_device_tasks:
-        remainder.cancel()
+    for pending in check_device_tasks:
+        pending.cancel()
 
     return found
 
@@ -167,7 +171,6 @@ async def _device_find_host_macaddr(
     """
 
     async with Device(host=device) as dev:
-
         # if the MAC address is not on this device, then return None.
         if not (interface := await dev.find_macaddr(macaddr)):
             return None
@@ -178,4 +181,4 @@ async def _device_find_host_macaddr(
             return None
 
         # If here, then the MAC address was found on this device on an edge-port.
-        return FindHostSearchResults(device=device, interface=interface)
+        return FindHostSearchResults(device=dev.host, interface=interface)

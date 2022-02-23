@@ -108,7 +108,9 @@ async def _search_network(
     """
 
     check_device_tasks = {
-        asyncio.create_task(_device_find_host_macaddr(device=device, macaddr=macaddr))
+        asyncio.create_task(
+            _device_find_host_macaddr(device=device, macaddr=macaddr), name=device
+        )
         for device in inventory
     }
 

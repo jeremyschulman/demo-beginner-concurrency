@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------
 
 import asyncio
+import contextlib
 from typing import List, Optional
 from dataclasses import dataclass
 
@@ -106,21 +107,32 @@ async def _search_network(
     Optional[FindHostSearchResults] - as described.
     """
 
-    tasks = [
-        _device_find_host_macaddr(device=device, macaddr=macaddr)
+    check_device_tasks = {
+        asyncio.create_task(_device_find_host_macaddr(device=device, macaddr=macaddr))
         for device in inventory
-    ]
+    }
 
-    pb_task = progressbar.add_task(description="Locating host", total=len(tasks))
+    pb_task = progressbar.add_task(
+        description="Locating host", total=len(check_device_tasks)
+    )
 
-    for this_dev in asyncio.as_completed(tasks):
+    search_result = asyncio.Queue(maxsize=1)
+
+    def _on_done(done_task: asyncio.Task):
         progressbar.update(pb_task, advance=1)
+        check_device_tasks.remove(done_task)
 
-        if found := await this_dev:
-            return found
+        with contextlib.suppress(asyncio.CancelledError):
+            if _result := done_task.result():
+                search_result.put_nowait(_result)
 
-    # not found in the inventory of devices
-    return None
+            elif not check_device_tasks:
+                search_result.put_nowait(None)
+
+    for todo in check_device_tasks:
+        todo.add_done_callback(_on_done)
+
+    return await search_result.get()
 
 
 async def _device_find_host_macaddr(

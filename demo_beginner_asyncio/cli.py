@@ -90,7 +90,7 @@ def cli_find_macaddr(ctx: click.Context, inventory: List[str], macaddr: str):
 )
 def cli_mp_xcvrs(inventory: List[str]):
     """Inventory transcievers using multiprocessors"""
-    mp_xcvrs.main(inventory)
+    asyncio.run(mp_xcvrs.mp_pool_main(inventory))
 
 
 # -----------------------------------------------------------------------------

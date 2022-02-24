@@ -8,6 +8,8 @@ from itertools import islice
 import asyncio
 from timeit import default_timer as timer
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 
 # -----------------------------------------------------------------------------
 # Private Imports
@@ -69,6 +71,51 @@ def main(inventory: List[str]):
     for part_ifx_types, part_ifs_down in res:
         ifx_types.update(part_ifx_types)
         ifs_down.extend(part_ifs_down)
+
+    its._report(ifx_types, ifs_down)
+    print(f"elapsed time: {end_ts - start_ts}")
+
+
+def foo(i):
+    return i, i
+
+
+async def mp_pool_main(inventory: List[str]):
+    """
+    Using a multiprocessor approach, perform the inventory of transceivers
+    demonstration.
+    """
+
+    workers = 4
+
+    # split the inventory into "workers" chunks so that multiprocessors can
+    # work on each chunk.
+
+    chunk_c, rem = divmod(len(inventory), workers)
+    pieces: List[List[str]] = list(chunk(inventory, len(inventory) // workers))
+    if rem:
+        rem_p = pieces.pop()
+        pieces[-1].extend(rem_p)
+
+    ifx_types = Counter()
+    ifs_down = list()
+
+    loop = asyncio.get_running_loop()
+
+    with ProcessPoolExecutor() as executor:
+        tasks = {
+            loop.run_in_executor(executor, partial(proc_main, piece))
+            for piece in pieces
+        }
+
+        start_ts = timer()
+
+        for job in asyncio.as_completed(tasks):
+            job_ifx_types, job_ifs_down = await job
+            ifx_types.update(job_ifx_types)
+            ifs_down.extend(job_ifs_down)
+
+        end_ts = timer()
 
     its._report(ifx_types, ifs_down)
     print(f"elapsed time: {end_ts - start_ts}")
